@@ -1,0 +1,190 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    {% block title %}
+<title>Корзина</title>
+{% endblock title %}
+</head>
+<body>
+
+
+{% load static %}
+
+
+{% block content %}
+<table class="cart-table">
+    <thead>
+    <tr>
+        <th>№</th>
+        <th>Изоображение</th>
+        <th>Наименование</th>
+        <th>Цена</th>
+        <th>Количество</th>
+        <th>Стоимость</th>
+        <th>Удаление позиции</th>
+    </tr>
+    </thead>
+    {% for item in cart %}
+        {% with product=item.product %}
+        <tr>
+            <td>
+                {{ product.id }}
+            </td>
+            <td>
+                {% if product.image %}
+                <img src="{{ product.image.url }}" style="wight:30px; height=30px">
+                {% endif %}
+            </td>
+            <td>
+                {{ product.name }}
+            </td>
+            <td>
+                <span id="productPrice">{{ product.price|floatformat:0 }}</span> руб.
+            </td>
+            <td>
+                <input id="prod_quantity" name="prod_quantity" type="number" min="1" max="100000" value="{{ item.quantity }}">
+            </td>
+            <td>
+                <span id="itemPrice">{{ item.total_price|floatformat:0 }}</span>  руб.
+            </td>
+            <td> <a href="{% url 'remove_product' product.id %}">Удалить товар</a>
+            </td>
+            <td><span class="removeFetch">***</span> </td>
+        </tr>
+    {% endwith %}
+    {% endfor %}
+
+</table>
+<p>Всего товаров: {{ cart|length }}</p>
+<p>Сумма товаров в корзине: {{ cart.get_total_price }}</p>
+<a href="{% url 'remove_cart' %}">Очистить корзину</a>
+<div style="padding-top:10px">
+    <a href="#" class="btn-blue" id="newOrder">Оформить заказ</a>
+</div>
+
+
+<div style="display: flex;
+            justify-content: center;
+            font-size: 30px;
+            padding-top: 20px;
+            padding-bottom: 40px;">
+    Корзина пуста!
+</div>
+
+
+
+<script>
+    async function removeItemFetch(event){
+        let productId = event.target.parentElement.parentElement.querySelector("#productId").value
+
+        let itemInfo = {
+            productIdValue: productId,
+        };
+
+        let response = await fetch('/cart/remove_fetch/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json;charset=utf-8',
+          },
+          body: JSON.stringify(itemInfo),
+        });
+        }
+
+    async function removeItem(event){
+        await removeItemFetch(event);
+        afterRemoveItem(event.target.parentElement.parentElement)
+        setTimeout(updatePrice.bind(null, event), 2000);
+    }
+
+    async function getCartLength(){
+        let response = await fetch('/cart/length/', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json;charset=utf-8',
+          },
+
+        });
+
+        let result = await response.json();
+        alert(result.cart_length);
+    };
+
+    function getTotalPriceCart(){
+        let itemPriceInputs = document.querySelectorAll("#itemPrice");
+        let totalPrice = 0;
+        itemPriceInputs.forEach((item, index)=>{
+            totalPrice += +item.textContent;
+            });
+        let totalPriceCart = document.querySelector("#totalPriceCart");
+        totalPriceCart.textContent = totalPrice;
+        return totalPrice;
+    }
+
+    function getQuantityInCart(){
+        let cartLengthHeader = document.querySelector("#cartLengthHeader")
+        let quantityInputs = document.querySelectorAll("#prod_quantity");
+        let allQuantity = 0;
+        quantityInputs.forEach((item,index)=>{
+            allQuantity += +item.value;
+        });
+        let cartLength = document.querySelector("#cartLength");
+        cartLength.textContent = allQuantity;
+        cartLengthHeader.textContent = allQuantity;
+        return allQuantity;
+    }
+
+    function updatePrice(event){
+        let quantity = event.target.value;
+        let itemPrice = event.target.parentElement.parentElement.querySelector("#itemPrice")
+        let productPrice = event.target.parentElement.parentElement.querySelector("#productPrice").textContent
+        productPrice = Number(productPrice.replace(",","."))
+
+        let newItemPrice = productPrice * quantity;
+        itemPrice.textContent = newItemPrice;
+        getQuantityInCart();
+        getTotalPriceCart();
+
+    };
+
+    function afterRemoveItem(item){
+        item.remove()
+    }
+
+    async function saveCartInSession(event){
+        let productId = event.target.parentElement.parentElement.querySelector("#productId").value
+        let quantity = event.target.value;
+
+        let cartInfo = {
+            productIdValue: productId,
+            quantityValue: quantity,
+            totalQuantity: getQuantityInCart(),
+            totalPrice: getTotalPriceCart(),
+        };
+
+        let response = await fetch('/cart/update_cart_session/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json;charset=utf-8',
+          },
+          body: JSON.stringify(cartInfo),
+        });
+
+    let result = await response.json();
+    };
+
+    const quantityInput = document.querySelectorAll("#prod_quantity")
+    quantityInput.forEach((item)=>{item.addEventListener('change', updatePrice)})
+    quantityInput.forEach((item)=>{item.addEventListener('change', saveCartInSession)})
+
+    const newOrderBtn = document.querySelector("#newOrder")
+    newOrderBtn.addEventListener('click', getCartLength)
+
+
+    const itemsRemove = document.querySelectorAll(".removeFetch")
+    itemsRemove.forEach((item)=>{item.addEventListener('click', removeItem)})
+
+</script>
+
+{% endblock content %}
